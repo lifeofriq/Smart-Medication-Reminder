@@ -1,0 +1,19 @@
+{
+  "name": "medreminder-backend",
+  "version": "1.0.0",
+  "description": "Smart Medication Reminder Backend (Node.js + MQTT + SQLite + Socket.IO)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.0.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "mqtt": "^5.14.1",
+    "socket.io": "^4.7.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  }
+}

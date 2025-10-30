@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Medication Reminder</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <script defer src="script.js"></script>
+</head>
+<body class="has-background-dark has-text-light p-5">
+  <section class="section">
+    <h1 class="title has-text-success">💊 Smart Medication Reminder</h1>
+
+    <h2 class="subtitle">Jadwal Minum Obat</h2>
+    <table class="table is-fullwidth is-striped has-background-dark has-text-light" id="scheduleTable">
+      <thead><tr><th>Waktu</th><th>Aksi</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="field has-addons mt-4">
+      <div class="control">
+        <input id="timeInput" class="input" type="time" />
+      </div>
+      <div class="control">
+        <button class="button is-success" onclick="addSchedule()">Tambah</button>
+      </div>
+    </div>
+
+    <hr>
+
+    <h2 class="subtitle">Kontrol Manual</h2>
+    <button class="button is-warning" onclick="sendCommand('ACK')">ACK (Heningkan)</button>
+    <button class="button is-info" onclick="sendCommand('TAKEN')">TAKEN (Obat Diambil)</button>
+
+    <hr>
+
+    <a href="logs.html" class="button is-light">📜 Lihat Log Aktivitas</a>
+  </section>
+</body>
+</html>
