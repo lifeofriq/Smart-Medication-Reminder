@@ -1,6 +1,7 @@
 {
   "name": "medreminder-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Smart Medication Reminder Backend (Node.js + MQTT + SQLite + Socket.IO)",
   "main": "server.js",
   "scripts": {
