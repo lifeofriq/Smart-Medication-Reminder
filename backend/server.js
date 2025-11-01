@@ -3,7 +3,7 @@ import cors from "cors";
 import mqtt from "mqtt";
 import path from "path";
 import { fileURLToPath } from "url";
-import pool from "./db.js"; // koneksi PostgreSQL
+import pool from './db.js';
 
 const app = express();
 const PORT = 3000;
