@@ -1,18 +1,22 @@
-# Gunakan image Node.js resmi
-FROM node:18-alpine
+# Use Node.js 18 (Linux)
+FROM node:18
 
-# Set working directory di container
+# Create app directory
 WORKDIR /app
 
-# Copy semua file ke dalam container
-COPY backend ./backend
+# Copy package files first for caching
+COPY backend/package*.json ./backend/
 
-# Masuk ke folder backend dan install dependencies
+# Install dependencies (Linux-native build)
 WORKDIR /app/backend
-RUN npm install
+RUN npm install --build-from-source sqlite3
 
-# Jalankan server
-CMD ["npm", "start"]
+# Copy the rest of the files
+WORKDIR /app
+COPY . .
 
-# Port yang digunakan server.js
+# Expose backend port
 EXPOSE 3000
+
+# Run the backend
+CMD ["npm", "start", "--prefix", "backend"]
