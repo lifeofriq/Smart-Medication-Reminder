@@ -1,8 +1,8 @@
-// server.js (ESM version)
+// server.js (ESM version final)
 import dotenv from "dotenv";
 import express from "express";
 import mqtt from "mqtt";
-import http from "http";
+import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import sqlite3pkg from "sqlite3";
@@ -13,12 +13,12 @@ dotenv.config();
 
 const sqlite3 = sqlite3pkg.verbose();
 
-// --- Fix __dirname dan __filename (karena di ESM tidak otomatis ada)
+// --- Fix __dirname ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const server = http.createServer(app);
+const server = createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(cors());
@@ -60,7 +60,6 @@ mqttClient.on("connect", () => {
   mqttClient.subscribe(TOPIC_LOG, (err) => {
     if (err) console.error("Subscribe error:", err);
   });
-  // saat start, kirim jadwal dari DB → device
   pushSchedulesToDevice();
 });
 
