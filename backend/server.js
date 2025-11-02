@@ -43,7 +43,7 @@ app.use(express.static(path.join(__dirname, "../frontend"))); // serve index.htm
 })();
 
 // ======== MQTT setup ========
-const mqttClient = mqtt.connect("mqtt://test.mosquitto.org");
+const mqttClient = mqtt.connect("mqtt://test.mosquitto.org:1883");
 
 mqttClient.on("connect", () => {
   console.log("✅ Connected to MQTT broker");
