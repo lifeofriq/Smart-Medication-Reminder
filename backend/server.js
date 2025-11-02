@@ -107,7 +107,7 @@ app.get("/api/logs", (req, res) => {
   res.json(rows);
 });
 
-app.get("/api/schedule", (req, res) => {
+app.get("/api/schedules", (req, res) => {
   const rows = db.prepare(`SELECT id, hhmm FROM schedules ORDER BY hhmm ASC`).all();
   res.json(rows);
 });
