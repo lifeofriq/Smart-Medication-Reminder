@@ -81,6 +81,7 @@
       const scheduleTable = document.querySelector("#scheduleTable tbody");
       const logTable = document.querySelector("#logTable tbody");
 
+      // ✅ Load schedule data
       async function loadSchedules() {
         const res = await fetch("/api/schedules");
         const data = await res.json();
@@ -89,13 +90,14 @@
             s => `
             <tr>
               <td>${s.id}</td>
-              <td>${s.time}</td>
+              <td>${s.hhmm}</td>
               <td><button onclick="deleteSchedule(${s.id})">Delete</button></td>
             </tr>`
           )
           .join("");
       }
 
+      // ✅ Load log data
       async function loadLogs() {
         const res = await fetch("/api/logs");
         const data = await res.json();
@@ -110,23 +112,26 @@
           .join("");
       }
 
+      // ✅ Delete schedule
       async function deleteSchedule(id) {
         await fetch("/api/schedules/" + id, { method: "DELETE" });
         loadSchedules();
       }
 
+      // ✅ Add schedule
       document.querySelector("#scheduleForm").addEventListener("submit", async e => {
         e.preventDefault();
         const time = document.querySelector("#timeInput").value;
         await fetch("/api/schedules", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ time }),
+          body: JSON.stringify({ schedules: [time] }), // backend expects array
         });
         e.target.reset();
         loadSchedules();
       });
 
+      // Auto-refresh
       loadSchedules();
       loadLogs();
       setInterval(loadLogs, 5000);
