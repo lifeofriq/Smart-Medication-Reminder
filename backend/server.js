@@ -1,122 +1,151 @@
-import express from "express";
-import cors from "cors";
-import mqtt from "mqtt";
-import path from "path";
-import { fileURLToPath } from "url";
-import pool from './db.js';
+// server.js
+require('dotenv').config();
+const express = require('express');
+const mqtt = require('mqtt');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-// ======== Setup path ========
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// ======== Middleware ========
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend"))); // serve index.html
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ======== Database setup ========
-// Buat tabel jika belum ada
-(async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS schedules (
-        id SERIAL PRIMARY KEY,
-        time TEXT NOT NULL
-      );
-    `);
+// --- ENV ---
+const PORT = process.env.PORT || 3000;
+const MQTT_URL = process.env.MQTT_URL;
+const TOPIC_LOG = process.env.MQTT_TOPIC_LOG || 'medreminder2/log';
+const TOPIC_CONTROL = process.env.MQTT_TOPIC_CONTROL || 'medreminder2/control';
+const TOPIC_CONFIG = process.env.MQTT_TOPIC_CONFIG || 'medreminder2/config';
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS logs (
-        id SERIAL PRIMARY KEY,
-        event TEXT,
-        timestamp TEXT
-      );
-    `);
-
-    console.log("✅ Database tables ensured");
-  } catch (err) {
-    console.error("❌ Error creating tables:", err);
-  }
-})();
-
-// ======== MQTT setup ========
-const mqttClient = mqtt.connect("mqtt://test.mosquitto.org: 1883");
-
-mqttClient.on("connect", () => {
-  console.log("✅ Connected to MQTT broker");
-  mqttClient.subscribe("medreminder2/log");
+// --- DB (SQLite) ---
+const db = new sqlite3.Database(path.join(__dirname, 'medreminder.db'));
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+      event TEXT,
+      time TEXT,
+      raw TEXT
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      hhmm TEXT NOT NULL
+    )
+  `);
 });
 
-mqttClient.on("message", async (topic, message) => {
-  try {
-    if (topic === "medreminder2/log") {
-      const data = JSON.parse(message.toString());
-      console.log("📥 MQTT Log:", data);
-      await pool.query(
-        "INSERT INTO logs(event, timestamp) VALUES($1, $2)",
-        [data.event, data.time]
-      );
-    }
-  } catch (err) {
-    console.error("❌ MQTT message handling error:", err);
-  }
+// --- MQTT client ---
+const mqttClient = mqtt.connect(MQTT_URL, {
+  // username, password jika broker private
+  // clientId: 'dashboard-' + Math.random().toString(16).slice(2)
 });
 
-// ======== API Routes ========
+mqttClient.on('connect', () => {
+  console.log('MQTT connected');
+  mqttClient.subscribe(TOPIC_LOG, (err) => {
+    if (err) console.error('Subscribe error:', err);
+  });
 
-// Get schedules
-app.get("/api/schedules", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM schedules ORDER BY time");
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  // Saat start, publish retained schedule dari DB → device
+  pushSchedulesToDevice();
 });
 
-// Add new schedule
-app.post("/api/schedules", async (req, res) => {
-  try {
-    const { time } = req.body;
-    await pool.query("INSERT INTO schedules(time) VALUES($1)", [time]);
-    res.json({ message: "Schedule added" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+mqttClient.on('message', (topic, payload) => {
+  if (topic === TOPIC_LOG) {
+    const text = payload.toString();
+    let obj = null;
+    try { obj = JSON.parse(text); } catch(e) {}
+    const event = obj?.event || 'UNKNOWN';
+    const time = obj?.time || null;
 
-// Delete schedule
-app.delete("/api/schedules/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await pool.query("DELETE FROM schedules WHERE id=$1", [id]);
-    res.json({ message: "Schedule deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get logs
-app.get("/api/logs", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM logs ORDER BY id DESC LIMIT 50"
+    // simpan ke DB
+    db.run(
+      `INSERT INTO logs(event, time, raw) VALUES (?, ?, ?)`,
+      [event, time, text]
     );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    // broadcast ke UI
+    io.emit('log', { event, time, raw: text });
   }
 });
 
-// ======== Serve UI ========
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+// --- helper: publish schedules retained ---
+function pushSchedulesToDevice() {
+  db.all(`SELECT hhmm FROM schedules ORDER BY hhmm ASC`, (err, rows) => {
+    if (err) return console.error(err);
+    const schedules = rows.map(r => r.hhmm);
+    const payload = JSON.stringify({ schedules });
+    mqttClient.publish(TOPIC_CONFIG, payload, { retain: true });
+    console.log('Pushed retained config:', payload);
+  });
+}
+
+// --- REST API ---
+// Ambil semua log (limit untuk hemat)
+app.get('/api/logs', (req, res) => {
+  const limit = Number(req.query.limit || 100);
+  db.all(`SELECT id, ts, event, time, raw FROM logs ORDER BY id DESC LIMIT ?`, [limit], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
 
-// ======== Start server ========
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+// Ambil schedules
+app.get('/api/schedules', (req, res) => {
+  db.all(`SELECT id, hhmm FROM schedules ORDER BY hhmm ASC`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Set schedules (replace all)
+app.post('/api/schedules', (req, res) => {
+  const schedules = Array.isArray(req.body.schedules) ? req.body.schedules : [];
+  // validasi sederhana HH:MM
+  const valid = schedules.every(s => /^\d{2}:\d{2}$/.test(s));
+  if (!valid) return res.status(400).json({ error: 'Invalid HH:MM array' });
+
+  db.serialize(() => {
+    db.run('DELETE FROM schedules');
+    const stmt = db.prepare('INSERT INTO schedules(hhmm) VALUES (?)');
+    for (const s of schedules) stmt.run(s);
+    stmt.finalize(() => {
+      // dorong ke device & retain
+      pushSchedulesToDevice();
+      res.json({ ok: true, schedules });
+    });
+  });
+});
+
+// Kirim control (ACK / TAKEN)
+app.post('/api/control', (req, res) => {
+  const { cmd } = req.body;
+  if (!['ACK','TAKEN'].includes(cmd)) {
+    return res.status(400).json({ error: 'cmd must be ACK or TAKEN' });
+  }
+  mqttClient.publish(TOPIC_CONTROL, cmd);
+  res.json({ ok: true });
+});
+
+// Halaman dashboard
+app.get('/', (_, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// --- WebSocket ---
+io.on('connection', socket => {
+  console.log('UI connected:', socket.id);
+});
+
+server.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT}`);
 });
