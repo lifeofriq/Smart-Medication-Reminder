@@ -1,5 +1,6 @@
 // server.js
-require('dotenv').config();
+import dotenv from "dotenv";
+dotenv.config();
 const express = require('express');
 const mqtt = require('mqtt');
 const http = require('http');
