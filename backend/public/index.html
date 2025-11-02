@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Smart Medication Reminder Dashboard</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f8f9fa;
+        margin: 0;
+        padding: 20px;
+      }
+      h1 {
+        color: #007bff;
+      }
+      section {
+        margin-bottom: 30px;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background: #007bff;
+        color: white;
+      }
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      input[type="time"] {
+        padding: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>💊 Smart Medication Reminder Dashboard</h1>
+
+    <section>
+      <h2>Schedule Management</h2>
+      <form id="scheduleForm">
+        <input type="time" id="timeInput" required />
+        <button type="submit">Add Schedule</button>
+      </form>
+      <table id="scheduleTable">
+        <thead>
+          <tr><th>ID</th><th>Time</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Event Logs</h2>
+      <table id="logTable">
+        <thead>
+          <tr><th>Event</th><th>Timestamp</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <script>
+      const scheduleTable = document.querySelector("#scheduleTable tbody");
+      const logTable = document.querySelector("#logTable tbody");
+
+      async function loadSchedules() {
+        const res = await fetch("/api/schedules");
+        const data = await res.json();
+        scheduleTable.innerHTML = data
+          .map(
+            s => `
+            <tr>
+              <td>${s.id}</td>
+              <td>${s.time}</td>
+              <td><button onclick="deleteSchedule(${s.id})">Delete</button></td>
+            </tr>`
+          )
+          .join("");
+      }
+
+      async function loadLogs() {
+        const res = await fetch("/api/logs");
+        const data = await res.json();
+        logTable.innerHTML = data
+          .map(
+            l => `
+            <tr>
+              <td>${l.event}</td>
+              <td>${l.timestamp}</td>
+            </tr>`
+          )
+          .join("");
+      }
+
+      async function deleteSchedule(id) {
+        await fetch("/api/schedules/" + id, { method: "DELETE" });
+        loadSchedules();
+      }
+
+      document.querySelector("#scheduleForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const time = document.querySelector("#timeInput").value;
+        await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ time }),
+        });
+        e.target.reset();
+        loadSchedules();
+      });
+
+      loadSchedules();
+      loadLogs();
+      setInterval(loadLogs, 5000);
+    </script>
+  </body>
+</html>
