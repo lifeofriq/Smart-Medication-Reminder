@@ -54,7 +54,7 @@ const TOPIC_CONTROL_PLAIN = process.env.MQTT_TOPIC_CONTROL || 'medreminder2/cont
 const TOPIC_CONFIG_PLAIN  = process.env.MQTT_TOPIC_CONFIG  || 'medreminder2/config';
 
 // --- Crypto setup (AES-256-CBC) ---
-const PASSPHRASE = process.env.SHARED_PASSPHRASE || 'kampustugas';
+const PASSPHRASE = process.env.SHARED_PASSPHRASE || 'kelompoktugas';
 const AES_KEY = crypto.createHash('sha256').update(PASSPHRASE).digest();
 const AES_IV  = Buffer.from(process.env.AES_IV_HEX || '0123456789abcdeffedcba9876543210', 'hex');
 
