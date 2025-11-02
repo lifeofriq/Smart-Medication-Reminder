@@ -2,13 +2,12 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
-// Ganti parameter sesuai konfigurasi PostgreSQL Railway
 const pool = new Pool({
-  user: 'username_postgres',      // username database
-  host: 'host_postgres',          // host dari Railway
-  database: 'nama_database',      // nama database
-  password: 'password_postgres',  // password database
-  port: 5432,                     // default port PostgreSQL
+  user: 'username_postgres',
+  host: 'host_postgres',
+  database: 'nama_database',
+  password: 'password_postgres',
+  port: 5432,
 });
 
 pool.on('connect', () => {
